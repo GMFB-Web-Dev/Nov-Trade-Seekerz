@@ -1,0 +1,46 @@
+{
+  "name": "trade-seekerz",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
+    "db:start": "node scripts/local-db.mjs start",
+    "db:stop": "node scripts/local-db.mjs stop",
+    "db:types": "node scripts/local-db.mjs types",
+    "demo": "node --env-file=.env.local scripts/seed-demo.mjs",
+    "test": "node --env-file=.env.local --test tests/*.test.mjs",
+    "test:e2e": "node --env-file=.env.local scripts/browser-smoke.mjs",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.2",
+    "lucide-react": "1.49.0",
+    "next": "16.3.8",
+    "nodemailer": "8.0.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "0.0.1",
+    "stripe": "23.0.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@types/nodemailer": "8.0.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.8",
+    "playwright": "1.51.1",
+    "supabase": "2.120.0",
+    "typescript": "5.9.3"
+  }
+}

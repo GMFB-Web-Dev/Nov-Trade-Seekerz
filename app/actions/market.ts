@@ -1,0 +1,157 @@
+"use server";
+
+import { after } from "next/server";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { deliverNotifications } from "@/lib/email";
+import { email, failure, idSchema, int, mutate, parse, postcode, slugSchema, text } from "@/lib/forms";
+import { withNotice } from "@/lib/format";
+import { db } from "@/lib/supabase";
+import { fileExtension } from "@/lib/upload";
+import { member } from "@/lib/viewer";
+
+const projectFields = z.object({
+  title: text(6, 100), description: text(20, 3000), suburb: text(2, 100), postcode,
+  category_slug: slugSchema, budget_min: int(0, 10000000), budget_max: int(0, 10000000),
+  applicant_limit: int(1, 10),
+}).refine((fields) => fields.budget_max >= fields.budget_min);
+
+async function projectPhoto(id: string, file: FormDataEntryValue | null, previous?: string | null) {
+  if (!(file instanceof File) || !file.size) return true;
+  const extension = await fileExtension(file);
+  if (!extension) return false;
+  const client = await db();
+  const bucket = client.storage.from("project-photos");
+  const path = id + "/" + crypto.randomUUID() + "." + extension;
+  const upload = await bucket.upload(path, file, { contentType: file.type, upsert: false });
+  if (upload.error) return false;
+  const saved = await client.rpc("market_action", { command: "set_photo", args: { path, project_id: id } });
+  if (saved.error) {
+    await bucket.remove([path]);
+    return false;
+  }
+  if (previous) await bucket.remove([previous]);
+  return true;
+}
+
+function notify() {
+  after(deliverNotifications);
+}
+
+function projectPath(id: string) {
+  return "/projects/" + id;
+}
+
+export async function createProject(form: FormData) {
+  await member("homeowner");
+  const back = "/projects/new";
+  const fields = parse(projectFields, form, back);
+  const invite = z.union([idSchema, z.literal("")]).safeParse(form.get("invite") ?? "");
+  if (!invite.success) failure(back);
+  const result = await mutate("create_project", { ...fields, invite: invite.data }, back);
+  const photoAdded = await projectPhoto(result, form.get("photo"));
+  notify();
+  redirect(withNotice(projectPath(result), photoAdded ? "success" : "error",
+    photoAdded ? "Job posted." : "Job posted. Upload a JPG, PNG, or WebP under 5 MB to add a photo."));
+}
+
+export async function editProject(form: FormData) {
+  await member("homeowner");
+  const { id } = parse(z.object({ id: idSchema }), form, "/dashboard");
+  const back = projectPath(id) + "/edit";
+  const fields = parse(projectFields, form, back);
+  const client = await db();
+  const { data: project } = await client.from("projects").select("photo_path").eq("id", id).maybeSingle();
+  await mutate("edit_project", { ...fields, project_id: id }, back);
+  const photoAdded = await projectPhoto(id, form.get("photo"), project?.photo_path);
+  redirect(withNotice(projectPath(id), photoAdded ? "success" : "error",
+    photoAdded ? "Job updated." : "Job updated. Please choose a valid photo under 5 MB."));
+}
+
+export async function applyToProject(form: FormData) {
+  await member("tradesperson");
+  const { id } = parse(z.object({ id: idSchema }), form, "/jobs");
+  const back = projectPath(id);
+  const { introduction } = parse(z.object({ introduction: text(10, 2000) }), form, back);
+  await mutate("apply", { project_id: id, introduction }, back);
+  notify();
+  redirect(withNotice(back, "success", "Application sent. You can now submit a quote."));
+}
+
+export async function quoteProject(form: FormData) {
+  await member("tradesperson");
+  const { id, application_id } = parse(z.object({ id: idSchema, application_id: idSchema }), form, "/dashboard");
+  const back = projectPath(id);
+  const input = parse(z.object({ amount: z.string().regex(/^\d{1,8}(\.\d{1,2})?$/)
+    .transform(Number).pipe(z.number().min(1).max(10000000)), description: text(10, 2000) }), form, back);
+  await mutate("quote", { application_id, amount_cents: Math.round(input.amount * 100), description: input.description }, back);
+  notify();
+  redirect(withNotice(back, "success", "Quote shared with the homeowner."));
+}
+
+export async function changeProject(form: FormData) {
+  await member("homeowner");
+  const { id, operation, application_id } = parse(z.object({
+    id: idSchema, operation: z.enum(["award", "finish", "cancel"]), application_id: idSchema.optional(),
+  }), form, "/dashboard");
+  const back = projectPath(id);
+  if (operation === "award" && !application_id) failure(back);
+  await mutate(operation, { project_id: id, application_id }, back);
+  notify();
+  redirect(withNotice(back, "success", { award: "Quote accepted and job awarded.", finish: "Job completed.", cancel: "Job cancelled." }[operation]));
+}
+
+export async function withdrawApplication(form: FormData) {
+  await member("tradesperson");
+  const { id, application_id } = parse(z.object({ id: idSchema, application_id: idSchema }), form, "/dashboard");
+  const back = projectPath(id);
+  await mutate("withdraw", { application_id }, back);
+  redirect(withNotice(back, "success", "Application withdrawn."));
+}
+
+export async function sendMessage(form: FormData) {
+  await member();
+  const { id, application_id, body, inbox } = parse(z.object({
+    id: idSchema, application_id: idSchema, body: text(1, 3000), inbox: z.literal("1").optional(),
+  }), form, "/messages");
+  const back = inbox ? "/messages?application=" + application_id : projectPath(id);
+  await mutate("send_message", { application_id, body }, back);
+  redirect(withNotice(back, "success", "Message sent."));
+}
+
+export async function leaveReview(form: FormData) {
+  await member("homeowner");
+  const { id } = parse(z.object({ id: idSchema }), form, "/dashboard");
+  const back = projectPath(id);
+  const { rating, body } = parse(z.object({ rating: int(1, 5), body: text(12, 1200) }), form, back);
+  await mutate("review", { project_id: id, rating, body }, back);
+  notify();
+  redirect(withNotice(back, "success", "Review published."));
+}
+
+export async function reportContent(form: FormData) {
+  await member();
+  const input = parse(z.object({
+    id: idSchema, subject_id: idSchema, subject_kind: z.enum(["project", "tradesperson", "message", "review"]), reason: text(12, 1500),
+  }), form, "/dashboard");
+  const back = (["tradesperson", "review"].includes(input.subject_kind) ? "/trades/" : "/projects/") + input.id;
+  await mutate("report", { subject_id: input.subject_id, subject_kind: input.subject_kind, reason: input.reason }, back);
+  redirect(withNotice(back, "success", "Report sent for review."));
+}
+
+export async function markNotificationsRead() {
+  await member();
+  await mutate("read_notifications", {}, "/dashboard");
+  redirect("/dashboard");
+}
+
+export async function submitContact(form: FormData) {
+  const path = "/contact";
+  const result = withNotice(path, "success", "Your message has been sent.");
+  if (form.get("website")) redirect(result);
+  const input = parse(z.object({ name: text(2, 100), email, message: text(12, 2000) }), form, path);
+  const client = await db();
+  const { error } = await client.rpc("submit_contact", { sender_name: input.name, sender_email: input.email, body: input.message });
+  if (error) failure(path, error.code === "P0001" ? error.message : "Could not send the message. Try again shortly.");
+  redirect(result);
+}
