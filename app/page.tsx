@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, Check, ChevronDown, ClipboardPenLine, MapPin, MessageSquareText, Search, ThumbsUp, UserRound } from "lucide-react";
-import { tradeImage } from "@/lib/catalog";
+import { tradeImage, trades } from "@/lib/catalog";
 import { loadCategories } from "@/lib/projects";
 
 const steps = [
@@ -19,7 +19,10 @@ const faq = [
 ];
 
 export default async function Home() {
-  const categories = await loadCategories();
+  const categories = await loadCategories().catch(() => {
+    console.warn("Could not load homepage trade categories. Using the bundled catalog.");
+    return trades;
+  });
   return <>
     <section className="home-hero">
       <Image className="hero-image" src="/images/hero.webp" width={1202} height={548} priority alt="Tradesperson with tools at a job site" />
