@@ -277,6 +277,7 @@
   overflow-wrap: anywhere;
 }
 .inbox-thread-link small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+.inbox-thread-unread { margin-inline: 4px; }
 .inbox-thread-link:hover, .inbox-thread-link[aria-current="page"] {
   background: var(--blue-soft);
   color: var(--primary);
@@ -322,6 +323,8 @@
   text-align: center;
 }
 .conversation-empty { color: var(--muted); font-size: 13px; }
+.conversation { position: relative; }
+.message-read-marker { position: absolute; inset: 0 auto auto 0; width: 1px; height: 1px; pointer-events: none; }
 .message-history {
   display: grid;
   align-content: start;

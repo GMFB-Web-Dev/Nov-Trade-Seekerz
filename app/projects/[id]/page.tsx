@@ -34,7 +34,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const ids = list.data.map((application) => application.id);
   const [quotes, messages] = ids.length ? await Promise.all([
     client.from("quotes").select("*").in("application_id", ids),
-    client.from("messages").select("*").in("application_id", ids).order("created_at", { ascending: false }).limit(250),
+    client.from("messages").select("*").in("application_id", ids)
+      .order("created_at", { ascending: false }).order("id", { ascending: false }).limit(250),
   ]) : [null, null];
   const canApply = tradesperson && ids.length === 0 && project.status === "open"
     && (!project.invited_tradesperson_id || project.invited_tradesperson_id === user.id);

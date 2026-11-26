@@ -82,7 +82,10 @@ async function register(current, name, role) {
   const accountMenu = current.locator(".header-account summary");
   await accountMenu.click();
   const accountLinks = current.getByRole("navigation", { name: "Account navigation" });
-  await accountLinks.getByRole("link", { name: "Dashboard", exact: true }).waitFor();
+  await accountLinks.getByRole("button", { name: "Sign out", exact: true }).waitFor();
+  assert.equal(await accountLinks.locator('a[href="/dashboard"]').count(), 0);
+  await current.getByRole("navigation", { name: "Main navigation" })
+    .getByRole("link", { name: role === "tradesperson" ? "My applications" : "My jobs", exact: true }).waitFor();
   assert.equal(await accountLinks.getByRole("link", { name: "Finish setup", exact: true }).count(), 0,
     "The account menu should update on the redirect immediately after setup");
   await accountMenu.press("Escape");
@@ -190,18 +193,44 @@ try {
   await mailFor(homeownerEmail, "A tradesperson sent a quote");
   console.log("Verified project posting, secure photo upload, search, tokens, quotes and transactional mail.");
 
+  await visit(home, "/dashboard");
+  const homeMainNav = home.getByRole("navigation", { name: "Main navigation" });
+  const jobDot = homeMainNav.locator('[data-nav-unread="jobs"]');
+  await jobDot.waitFor();
+  await home.getByRole("button", { name: "Mark all as read", exact: true }).click();
+  await jobDot.waitFor({ state: "hidden" });
+
   await visit(trades, "/messages");
   await trades.getByLabel("Message", { exact: true }).fill("We can start on Friday morning.");
-  await trades.getByRole("button", { name: "Send message", exact: true }).click();
+  const releaseMessageRequest = Promise.withResolvers();
+  const inboxUrl = (url) => url.pathname === "/messages";
+  const holdMessageRequest = async (route) => {
+    if (route.request().method() === "POST") await releaseMessageRequest.promise;
+    await route.continue();
+  };
+  await trades.route(inboxUrl, holdMessageRequest);
+  try {
+    await trades.getByRole("button", { name: "Send message", exact: true }).click();
+    const pendingSend = trades.getByRole("button", { name: "Sending…", exact: true });
+    await pendingSend.waitFor();
+    assert.equal(await pendingSend.isDisabled(), true);
+  } finally {
+    releaseMessageRequest.resolve();
+    await trades.unroute(inboxUrl, holdMessageRequest);
+  }
   await text(trades, "Message sent.");
-  await responsive(home, "/messages", "Messages", "messages");
   await home.setViewportSize({ width: 390, height: 900 });
+  await visit(home, "/messages");
+  const mobileDot = home.locator('.mobile-menu [data-nav-unread="menu"]');
+  await mobileDot.waitFor();
+  await home.getByRole("navigation", { name: "Conversations" }).getByRole("img", { name: "Unread messages", exact: true }).waitFor();
   const thread = home.getByRole("link", { name: /Browser smoke timber fence/ });
   await thread.click();
   await home.waitForURL((url) => url.pathname === "/messages" && url.searchParams.has("application"));
   const application = new URL(home.url()).searchParams.get("application");
   assert.ok(application, "The mobile conversation URL identifies the application");
   await text(home, "We can start on Friday morning.");
+  await mobileDot.waitFor({ state: "hidden" });
   await home.getByLabel("Message", { exact: true }).fill("   ");
   await home.getByRole("button", { name: "Send message", exact: true }).click();
   await text(home, "Check the form fields and try again.");
@@ -220,13 +249,15 @@ try {
   assert.equal(new URL(home.url()).searchParams.get("application"), application);
   await home.getByRole("link", { name: "All conversations", exact: true }).click();
   await thread.waitFor();
-  await home.setViewportSize({ width: 1440, height: 900 });
+  await responsive(home, "/messages", "Messages", "messages");
 
   await visit(home, projectPath);
   await home.getByRole("button", { name: "Accept quote and award job" }).click();
   await text(home, "Quote accepted and job awarded.");
   await home.getByRole("button", { name: "Mark as complete" }).click();
   await text(home, "Job completed.");
+  await visit(trades, "/dashboard");
+  await trades.getByRole("navigation", { name: "Main navigation" }).locator('[data-nav-unread="jobs"]').waitFor();
   await visit(trades, "/messages?application=" + application);
   await text(trades, "This conversation is closed.");
   assert.equal(await trades.getByRole("button", { name: "Send message", exact: true }).count(), 0);

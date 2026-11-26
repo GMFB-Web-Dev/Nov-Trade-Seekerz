@@ -1,5 +1,6 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -116,12 +117,15 @@ export async function withdrawApplication(form: FormData) {
 }
 
 export async function sendMessage(form: FormData) {
-  await member();
+  const client = await db();
+  const { data } = await client.auth.getUser();
+  if (!data.user) redirect("/login");
   const { id, application_id, inbox, inbox_page } = parse(z.object({
     id: idSchema, application_id: idSchema, inbox: z.literal("1").optional(), inbox_page: int(1, 200).optional(),
   }), form, "/messages");
   const back = inbox ? inboxPath(application_id, inbox_page) : projectReturnPath(id, form.get("from"));
   const { body } = parse(z.object({ body: text(1, 3000) }), form, back);
+  // The command verifies the account status, onboarding, and conversation membership.
   await mutate("send_message", { application_id, body }, back);
   redirect(withNotice(back, "success", "Message sent."));
 }
@@ -153,6 +157,7 @@ export async function reportContent(form: FormData) {
 export async function markNotificationsRead() {
   await member();
   await mutate("read_notifications", {}, "/dashboard");
+  refresh();
   redirect("/dashboard");
 }
 

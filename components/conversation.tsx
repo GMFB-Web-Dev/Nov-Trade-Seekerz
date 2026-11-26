@@ -1,14 +1,17 @@
 import { sendMessage } from "@/app/actions/market";
-import { Send } from "lucide-react";
 import { shortDate } from "@/lib/format";
 import type { Message } from "@/lib/projects";
+import { MessageReadMarker } from "./message-read-marker";
 import { ReportForm } from "./report-form";
+import { SendMessageButton } from "./send-message-button";
 
 export function Conversation({ projectId, applicationId, me, messages, open, inboxPage, results }: {
   projectId: string; applicationId: string; me: string; messages: Message[]; open: boolean; inboxPage?: number;
   results?: string | null;
 }) {
+  const lastUnread = messages.findLast((message) => message.recipient_id === me && !message.read_at);
   return <div className="conversation">
+    {lastUnread && <MessageReadMarker lastMessageId={lastUnread.id} refreshInbox={Boolean(inboxPage)} />}
     {!messages.length ? <p className="conversation-empty">{open ? "Start the conversation with a message about the job." : "There are no messages in this conversation yet."}</p>
       : <ol className="message-history" aria-label="Message history">
         {messages.map((message) => <li className={"message-bubble" + (message.sender_id === me ? " mine" : "")} key={message.id}>
@@ -25,7 +28,7 @@ export function Conversation({ projectId, applicationId, me, messages, open, inb
       </>}
       {results && <input type="hidden" name="from" value={results} />}
       <label>Message<textarea name="body" rows={2} required maxLength={3000} placeholder="Write a message…" /></label>
-      <button className="button" type="submit"><Send size={16} aria-hidden="true" /> Send message</button>
+      <SendMessageButton />
     </form>}
   </div>;
 }

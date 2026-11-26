@@ -52,6 +52,16 @@ test("database roles, application limit, private files, job lifecycle and modera
 
   await action(winner.client, "quote", { application_id: application.id, amount_cents: 135000, description: "Includes disposal, materials and labour." });
   await action(winner.client, "send_message", { application_id: application.id, body: "I can start on Friday." });
+  const received = ok(await home.client.from("messages").select("id,recipient_id,read_at").eq("application_id", application.id).single());
+  assert.equal(received.recipient_id, home.id);
+  assert.equal(received.read_at, null);
+  await winner.client.rpc("mark_message_thread_read", { last_message_id: received.id });
+  assert.equal(ok(await home.client.from("messages").select("read_at").eq("id", received.id).single()).read_at, null,
+    "Only the recipient can mark a message read");
+  await action(winner.client, "send_message", { application_id: application.id, body: "I can bring the materials." });
+  assert.equal(ok(await home.client.rpc("mark_message_thread_read", { last_message_id: received.id })), 1);
+  assert.deepEqual(ok(await home.client.from("messages").select("body").eq("application_id", application.id).is("read_at", null)),
+    [{ body: "I can bring the materials." }], "A message sent after the selected message remains unread");
   assert.deepEqual(ok(await stranger.client.from("messages").select("id").eq("application_id", application.id)), []);
   assert.ok((await loser.client.rpc("market_action", { command: "send_message", args: { application_id: application.id, body: "Unrelated account" } })).error);
   await action(home.client, "award", { application_id: application.id, project_id: page });

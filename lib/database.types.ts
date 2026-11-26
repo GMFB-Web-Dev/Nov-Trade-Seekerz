@@ -384,6 +384,8 @@ export type Database = {
                     "body": string;
                     "created_at": string;
                     "id": string;
+                    "read_at": string | null;
+                    "recipient_id": string | null;
                     "sender_id": string | null;
                 };
                 ComputedFields: never;
@@ -392,6 +394,8 @@ export type Database = {
                     "body": string;
                     "created_at"?: string;
                     "id"?: string;
+                    "read_at"?: string | null;
+                    "recipient_id"?: string | null;
                     "sender_id"?: string | null;
                 };
                 Update: {
@@ -399,6 +403,8 @@ export type Database = {
                     "body"?: string;
                     "created_at"?: string;
                     "id"?: string;
+                    "read_at"?: string | null;
+                    "recipient_id"?: string | null;
                     "sender_id"?: string | null;
                 };
                 Relationships: [
@@ -409,6 +415,17 @@ export type Database = {
                         ];
                         isOneToOne: false;
                         referencedRelation: "applications";
+                        referencedColumns: [
+                            "id"
+                        ];
+                    },
+                    {
+                        foreignKeyName: "messages_recipient_id_fkey";
+                        columns: [
+                            "recipient_id"
+                        ];
+                        isOneToOne: false;
+                        referencedRelation: "profiles";
                         referencedColumns: [
                             "id"
                         ];
@@ -1081,6 +1098,12 @@ export type Database = {
                     "status": Database["public"]["Enums"]["account_status"];
                     "total": number;
                 }[];
+            };
+            "mark_message_thread_read": {
+                Args: {
+                    "last_message_id": string;
+                };
+                Returns: number;
             };
             "market_action": {
                 Args: {

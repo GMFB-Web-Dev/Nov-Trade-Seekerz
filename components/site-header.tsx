@@ -22,7 +22,6 @@ export async function SiteHeader() {
     messages,
   ] : publicLinks;
   const account = viewer ? [
-    ...(active ? [{ href: "/dashboard", label: "Dashboard" }] : []),
     ...(active && !ready ? [{ href: "/onboarding", label: "Finish setup" }] : []),
     { href: "/account", label: "Account settings" },
     ...(tradie ? [{ href: "/billing", label: "Tokens and membership" }] : []),
@@ -34,7 +33,7 @@ export async function SiteHeader() {
       <Link className="brand" href="/" aria-label="Trade Seekerz home">
         <Image src="/images/logo.png" width={136} height={44} alt="Trade Seekerz" priority />
       </Link>
-      <HeaderNavigation links={links} primary={primary} account={account} />
+      <HeaderNavigation links={links} primary={primary} account={account} unreadUserId={ready ? viewer?.user.id : undefined} />
     </div>
   </header>;
 }

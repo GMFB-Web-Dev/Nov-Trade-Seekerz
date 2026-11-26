@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bell, BriefcaseBusiness, CircleCheck, ClipboardList, Coins, FolderOpen, Plus } from "lucide-react";
 import { markNotificationsRead } from "@/app/actions/market";
 import { ProjectCard } from "@/components/project-card";
+import { SyncNavigationUnread } from "@/components/sync-navigation-unread";
 import { Empty, Notice, PageTitle, Pagination } from "@/components/ui";
 import { param, shortDate, type Query } from "@/lib/format";
 import { projectImage } from "@/lib/projects";
@@ -70,6 +71,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   ];
 
   return <div className="market-surface"><div className="container page">
+    <SyncNavigationUnread jobCount={notifications.count ?? 0} />
     <PageTitle title={title} description={isTrade ? "Track your applications and quotes." : "Manage your listings, applications, and quotes."}
       action={<Link className="button" href={actionHref}>{isTrade ? <BriefcaseBusiness size={17} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}{actionLabel}</Link>} />
     <Notice query={query} />

@@ -19,10 +19,18 @@ export default async function Messages({ searchParams }: { searchParams: Promise
   const page = Math.max(1, Math.min(200, Math.floor(Number(param(query.page)) || 1)));
   const isTrade = profile.role === "tradesperson";
   const threads = (count?: "exact") => client.from("applications")
-    .select("id,status,tradesperson_id,projects!inner(id,title,status,homeowner_id),tradesperson:profiles!applications_tradesperson_id_fkey(business_name,display_name)", { count })
-    .eq(isTrade ? "tradesperson_id" : "projects.homeowner_id", user.id);
-  const list = await threads("exact").order("created_at", { ascending: false }).order("id")
-    .range((page - 1) * pageSize, page * pageSize - 1);
+    .select("id,status,tradesperson_id,projects!inner(id,title,status,homeowner_id),tradesperson:profiles!applications_tradesperson_id_fkey(business_name,display_name),unread:messages(id)", { count })
+    .eq(isTrade ? "tradesperson_id" : "projects.homeowner_id", user.id)
+    .eq("unread.recipient_id", user.id)
+    .is("unread.read_at", null)
+    .limit(1, { referencedTable: "unread" });
+  const loadJournal = (applicationId: string) => client.from("messages").select("*").eq("application_id", applicationId)
+    .order("created_at", { ascending: false }).order("id", { ascending: false }).limit(100);
+  const [list, selectedJournal] = await Promise.all([
+    threads("exact").order("created_at", { ascending: false }).order("id")
+      .range((page - 1) * pageSize, page * pageSize - 1),
+    selected ? loadJournal(selected) : null,
+  ]);
   if (page > 1 && (list.error?.code === "PGRST103" || list.data?.length === 0)) redirect(inboxPath(selected));
   if (list.error) throw new Error("Could not load conversations.");
   const match = list.data.find((item) => item.id === selected);
@@ -31,8 +39,7 @@ export default async function Messages({ searchParams }: { searchParams: Promise
   const requested = match ?? older?.data;
   const active = requested ?? list.data[0];
   const visibleThreads = older?.data ? [older.data, ...list.data] : list.data;
-  const journal = active ? await client.from("messages").select("*").eq("application_id", active.id)
-    .order("created_at", { ascending: false }).limit(100) : null;
+  const journal = requested ? selectedJournal : active ? await loadJournal(active.id) : null;
   if (journal?.error) throw new Error("Could not load messages.");
   const participant = (item: typeof active) => isTrade
     ? "Homeowner"
@@ -51,7 +58,9 @@ export default async function Messages({ searchParams }: { searchParams: Promise
               aria-current={active.id === item.id ? "page" : undefined} href={inboxPath(item.id, page)}>
               <span className="inbox-thread-icon"><MessageSquare size={18} aria-hidden="true" /></span>
               <span><strong>{item.projects.title}</strong><small>{participant(item)}</small></span>
-              <ChevronRight size={16} aria-hidden="true" />
+              {item.unread.length > 0
+                ? <span className="unread-dot inbox-thread-unread" role="img" aria-label="Unread messages" />
+                : <ChevronRight size={16} aria-hidden="true" />}
             </Link></li>)}
           </ul>
         </nav>
