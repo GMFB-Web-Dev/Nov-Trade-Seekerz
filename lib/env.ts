@@ -28,7 +28,7 @@ export function supabaseEnv() {
 }
 
 export function serviceKey() {
-  return required("SUPABASE_SERVICE_KEY");
+  return process.env.SUPABASE_SERVICE_KEY?.trim() || required("SUPABASE_SECRET_KEY");
 }
 
 export function sandboxEnabled() {
