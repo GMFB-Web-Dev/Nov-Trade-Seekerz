@@ -477,6 +477,45 @@ export type Database = {
                     }
                 ];
             };
+            "profile_trade_categories": {
+                Row: {
+                    "category_slug": string;
+                    "profile_id": string;
+                };
+                ComputedFields: never;
+                Insert: {
+                    "category_slug": string;
+                    "profile_id": string;
+                };
+                Update: {
+                    "category_slug"?: string;
+                    "profile_id"?: string;
+                };
+                Relationships: [
+                    {
+                        foreignKeyName: "profile_trade_categories_category_slug_fkey";
+                        columns: [
+                            "category_slug"
+                        ];
+                        isOneToOne: false;
+                        referencedRelation: "categories";
+                        referencedColumns: [
+                            "slug"
+                        ];
+                    },
+                    {
+                        foreignKeyName: "profile_trade_categories_profile_id_fkey";
+                        columns: [
+                            "profile_id"
+                        ];
+                        isOneToOne: false;
+                        referencedRelation: "profiles";
+                        referencedColumns: [
+                            "id"
+                        ];
+                    }
+                ];
+            };
             "profiles": {
                 Row: {
                     "bio": string;

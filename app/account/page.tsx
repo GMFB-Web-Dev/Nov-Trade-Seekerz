@@ -14,7 +14,12 @@ export default async function Account({ searchParams }: { searchParams: Promise<
   const [{ user, profile, admin }, query] = await Promise.all([signedIn(), searchParams]);
   const trade = profile?.role === "tradesperson";
   const client = trade && profile.status === "active" && profile.onboarded_at ? await db() : null;
-  const categories = client ? await client.from("categories").select("slug,name").eq("active", true).order("sort_order") : null;
+  const [categories, selections] = client ? await Promise.all([
+    client.from("categories").select("slug,name").eq("active", true).order("sort_order").order("name"),
+    client.from("profile_trade_categories").select("category_slug").eq("profile_id", user.id),
+  ]) : [null, null];
+  if (categories?.error || selections?.error) throw new Error("Could not load your trade categories.");
+  const selectedCategories = selections?.data.map(({ category_slug }) => category_slug);
 
   return <div className="market-surface"><div className="container page account-page">
     <PageTitle title="Your account" description={user.email} action={<form action={logout}>
@@ -44,7 +49,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
             <h2>Profile details</h2>
             {trade && <Link className="inline-link" href={"/trades/" + user.id}>View public profile</Link>}
           </div>
-          <ProfileFields categories={categories?.data ?? []} profile={profile} />
+          <ProfileFields categories={categories?.data ?? []} profile={profile} selectedCategories={selectedCategories} />
           <button className="button">Save profile</button>
         </form>
         {trade && <TradeDocuments owner={user.id} />}

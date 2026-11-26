@@ -12,17 +12,19 @@ const publicLinks = [directory, findJobs, { href: "/how-it-works", label: "How i
 export async function SiteHeader() {
   const viewer = await getViewer();
   const profile = viewer?.profile;
-  const active = Boolean(profile?.status === "active" && profile.onboarded_at);
-  const tradie = active && profile?.role === "tradesperson";
+  const active = profile?.status === "active";
+  const ready = active && Boolean(profile.onboarded_at);
+  const tradie = ready && profile.role === "tradesperson";
   const primary = tradie ? findJobs : postJob;
-  const links = active ? [
+  const links = ready ? [
     { href: "/dashboard", label: tradie ? "My applications" : "My jobs" },
     tradie ? findJobs : directory,
     messages,
   ] : publicLinks;
   const account = viewer ? [
+    ...(active ? [{ href: "/dashboard", label: "Dashboard" }] : []),
+    ...(active && !ready ? [{ href: "/onboarding", label: "Finish setup" }] : []),
     { href: "/account", label: "Account settings" },
-    ...(profile?.status === "active" && !active ? [{ href: "/onboarding", label: "Finish setup" }] : []),
     ...(tradie ? [{ href: "/billing", label: "Tokens and membership" }] : []),
     ...(viewer.admin ? [{ href: "/admin", label: "Admin workspace" }] : []),
   ] : [];

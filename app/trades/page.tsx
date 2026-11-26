@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight, MapPin, Search, Star } from "lucide-react";
 import { Empty, PageTitle, Pagination, Tag } from "@/components/ui";
-import { tradeLabel } from "@/lib/catalog";
 import { param, type Query } from "@/lib/format";
 import { loadCategories } from "@/lib/projects";
 import { db } from "@/lib/supabase";
@@ -25,10 +24,11 @@ export default async function TradesDirectory({ searchParams }: { searchParams: 
   const q = exactMatch?.slug === trade ? "" : keyword;
   const filters = { q, trade, postcode };
 
-  let request = client.from("profiles").select("id,display_name,business_name,category_slug,bio,postcode", { count: "exact" })
+  let request = client.from("profiles")
+    .select("id,display_name,business_name,bio,postcode,profile_trade_categories(category_slug),trade_match:profile_trade_categories()", { count: "exact" })
     .eq("role", "tradesperson").eq("status", "active").not("onboarded_at", "is", null);
   if (q) request = request.or("business_name.ilike.%" + q + "%,display_name.ilike.%" + q + "%,bio.ilike.%" + q + "%");
-  if (trade) request = request.eq("category_slug", trade);
+  if (trade) request = request.eq("trade_match.category_slug", trade).not("trade_match", "is", null);
   if (postcode) request = request.like("postcode", postcode + "%");
   const result = await request.order("business_name").order("id").range((page - 1) * size, page * size - 1);
   if (page > 1 && (result.error?.code === "PGRST103" || result.data?.length === 0)) redirect(directoryPath(filters));
@@ -66,13 +66,18 @@ export default async function TradesDirectory({ searchParams }: { searchParams: 
         {result.data.map((profile) => {
           const name = profile.business_name || profile.display_name;
           const feedback = ratings.get(profile.id);
-          const category = profile.category_slug ? categoryNames.get(profile.category_slug) ?? tradeLabel(profile.category_slug) : null;
+          const chosen = new Set(profile.profile_trade_categories.map(({ category_slug }) => category_slug));
+          const profileCategories = categories.filter(({ slug }) => chosen.has(slug));
           const href = "/trades/" + profile.id + (from === "/trades" ? "" : "?" + new URLSearchParams({ from }));
           return <article className="directory-result" key={profile.id}>
             <Link className="panel directory-card" href={href} aria-label={"View " + name}>
               <div className="directory-card-heading">
                 <span className="trade-avatar" aria-hidden="true">{tradeInitials(name)}</span>
-                <div><h3>{name}</h3>{category && <Tag value={category} />}</div>
+                <div><h3>{name}</h3>
+                  {profileCategories.length > 0 && <div className="chips">
+                    {profileCategories.map(({ slug, name }) => <Tag key={slug} value={name} />)}
+                  </div>}
+                </div>
                 <ArrowRight size={17} aria-hidden="true" />
               </div>
               {profile.bio && <p className="clamp">{profile.bio}</p>}

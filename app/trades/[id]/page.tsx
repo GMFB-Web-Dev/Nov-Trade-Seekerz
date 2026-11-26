@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { MapPin, Star } from "lucide-react";
 import { ReportForm } from "@/components/report-form";
 import { Back, Empty, Notice, PageTitle, Tag } from "@/components/ui";
-import { tradeLabel } from "@/lib/catalog";
 import { param, shortDate, type Query } from "@/lib/format";
 import { uuid } from "@/lib/projects";
 import { db } from "@/lib/supabase";
@@ -15,12 +14,14 @@ export default async function TradeProfile({ params, searchParams }: { params: P
   if (!uuid.safeParse(id).success) notFound();
   const client = await db();
   const [trade, feedback, viewer] = await Promise.all([
-    client.from("profiles").select("display_name,business_name,category_slug,bio,postcode,categories(name)")
+    client.from("profiles")
+      .select("display_name,business_name,bio,postcode,profile_trade_categories(categories(slug,name,active,sort_order))")
       .eq("id", id).eq("role", "tradesperson").eq("status", "active").not("onboarded_at", "is", null).maybeSingle(),
     client.from("reviews").select("id,rating,body,created_at", { count: "exact" }).eq("tradesperson_id", id)
       .eq("visible", true).order("created_at", { ascending: false }).limit(25),
     getViewer(),
   ]);
+  if (trade.error) throw new Error("Could not load the tradesperson.");
   if (!trade.data) notFound();
   const profile = trade.data;
   const name = profile.business_name || profile.display_name;
@@ -29,7 +30,9 @@ export default async function TradeProfile({ params, searchParams }: { params: P
   const canReport = active && viewer.profile?.onboarded_at && viewer.user.id !== id;
   const reviews = feedback.data ?? [];
   const total = feedback.count ?? reviews.length;
-  const category = profile.category_slug ? profile.categories?.name ?? tradeLabel(profile.category_slug) : null;
+  const categories = profile.profile_trade_categories
+    .flatMap(({ categories }) => categories?.active ? [categories] : [])
+    .sort((first, second) => first.sort_order - second.sort_order || first.name.localeCompare(second.name, "en-NZ"));
   const from = backToDirectory(param(query.from));
 
   return <div className="market-surface"><div className="container page directory-page">
@@ -42,7 +45,8 @@ export default async function TradeProfile({ params, searchParams }: { params: P
       <aside className="panel stack trade-profile-summary" aria-labelledby="business-details">
         <span className="trade-avatar" aria-hidden="true">{tradeInitials(name)}</span>
         <h2 id="business-details">Business details</h2>
-        <div className="chips">{category && <Tag value={category} />}
+        <div className="chips">
+          {categories.map(({ slug, name }) => <Tag key={slug} value={name} />)}
           {profile.postcode && <span className="location"><MapPin size={16} aria-hidden="true" /> {profile.postcode}</span>}
         </div>
         {total > 0 && <a className="inline-link" href="#trade-reviews">{total} {total === 1 ? "completed job review" : "completed job reviews"}</a>}

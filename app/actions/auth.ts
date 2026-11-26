@@ -1,5 +1,6 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { appUrl } from "@/lib/env";
@@ -14,9 +15,16 @@ const profileSchema = z.object({
   display_name: text(2, 100),
   postcode,
   business_name: text(0, 120),
-  category_slug: text(0, 60),
   bio: text(0, 1500),
 });
+
+const tradeCategories = z.array(z.string());
+
+function readTradeCategories(form: FormData, path: string) {
+  const result = tradeCategories.safeParse(form.getAll("category_slugs"));
+  if (!result.success) failure(path, "Choose distinct, active trade categories.");
+  return result.data;
+}
 
 export async function register(form: FormData) {
   const journey = jobJourney(form.get("next"));
@@ -74,13 +82,16 @@ export async function completeProfile(form: FormData) {
   const journey = jobJourney(form.get("next"));
   const back = jobJourneyLink("/onboarding", journey?.href);
   const input = parse(profileSchema.extend({ role }), form, back);
-  await mutate("onboard", input, back);
+  const categories = input.role === "tradesperson" ? readTradeCategories(form, back) : [];
+  await mutate("onboard", { ...input, category_slugs: categories }, back);
+  refresh();
   redirect(withNotice(journey?.role === input.role ? journey.href : "/dashboard", "success", "Your account is ready."));
 }
 
 export async function saveProfile(form: FormData) {
   const input = parse(profileSchema, form, "/account");
-  await mutate("profile", input, "/account");
+  const categories = readTradeCategories(form, "/account");
+  await mutate("profile", { ...input, category_slugs: categories }, "/account");
   redirect(withNotice("/account", "success", "Profile saved."));
 }
 

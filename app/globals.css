@@ -212,6 +212,15 @@ input::placeholder, textarea::placeholder { color: #646b77; }
 .checkbox { display: flex; gap: 8px; align-items: flex-start; font-weight: 500; }
 .checkbox input { height: 16px; width: 16px; flex: 0 0 auto; accent-color: var(--primary); }
 .checkbox a { color: var(--primary); text-decoration: underline; }
+.trade-category-fields { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
+.trade-category-fields legend { padding: 0; font-size: 13px; font-weight: 700; }
+.trade-category-fields .field-note { margin: 4px 0 8px; }
+.trade-category-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; }
+.trade-category-options .checkbox {
+  align-items: center; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: var(--control-radius); cursor: pointer; overflow-wrap: anywhere;
+}
+.trade-category-options .checkbox:has(input:checked) { background: var(--blue-soft); border-color: var(--primary); }
 .form-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .project-form { gap: 24px; padding: clamp(16px, 3.5vw, 32px); box-shadow: var(--shadow); }
 .job-edit-section { border-top: 1px solid var(--line); padding-top: 24px; }

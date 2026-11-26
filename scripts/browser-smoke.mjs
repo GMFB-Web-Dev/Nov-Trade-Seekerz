@@ -18,7 +18,7 @@ async function page() {
 }
 
 async function visit(current, path) {
-  await current.goto(app + path, { waitUntil: "networkidle", timeout: 60000 });
+  await current.goto(app + path, { waitUntil: "domcontentloaded", timeout: 60000 });
   await current.locator("main h1").first().waitFor({ state: "visible" });
 }
 
@@ -71,11 +71,21 @@ async function register(current, name, role) {
   await current.getByLabel("Postcode").fill("1025");
   if (role === "tradesperson") {
     await current.getByLabel("Business name").fill("Browser Smoke Building");
-    await current.getByLabel("Trade category").selectOption("builders");
+    const builders = current.getByRole("checkbox", { name: "Builders", exact: true });
+    assert.equal(await builders.evaluate((input) => input.validationMessage), "Choose at least one trade category.");
+    await builders.check();
+    await current.getByRole("checkbox", { name: "Plumbing", exact: true }).check();
     await current.getByLabel("About your business").fill("Local building and fencing work.");
   }
   await current.getByRole("button", { name: "Finish setup", exact: true }).click();
   await text(current, "Your account is ready.");
+  const accountMenu = current.locator(".header-account summary");
+  await accountMenu.click();
+  const accountLinks = current.getByRole("navigation", { name: "Account navigation" });
+  await accountLinks.getByRole("link", { name: "Dashboard", exact: true }).waitFor();
+  assert.equal(await accountLinks.getByRole("link", { name: "Finish setup", exact: true }).count(), 0,
+    "The account menu should update on the redirect immediately after setup");
+  await accountMenu.press("Escape");
   return email;
 }
 
@@ -105,7 +115,44 @@ try {
   const homeownerEmail = await register(home, "Browser Owner", "homeowner");
   const tradeEmail = await register(trades, "Browser Tradie", "tradesperson");
   console.log("Verified both registration and onboarding flows.");
+
+  await visit(publicPage, "/trades?q=Browser+Smoke+Building&trade=plumbing");
+  const directoryCard = publicPage.getByRole("link", { name: "View Browser Smoke Building", exact: true });
+  await directoryCard.getByText("Builders", { exact: true }).waitFor();
+  await directoryCard.getByText("Plumbing", { exact: true }).waitFor();
+  await directoryCard.click();
+  await publicPage.getByRole("heading", { name: "Browser Smoke Building", exact: true }).waitFor();
+  const businessDetails = publicPage.getByRole("complementary", { name: "Business details" });
+  await businessDetails.getByText("Builders", { exact: true }).waitFor();
+  await businessDetails.getByText("Plumbing", { exact: true }).waitFor();
+  const invitation = await publicPage.getByRole("link", { name: "Request this tradesperson", exact: true }).getAttribute("href");
+  assert.ok(invitation?.startsWith("/projects/new?invite="));
+  await visit(home, invitation);
+  assert.equal(await home.getByLabel("Trade category").inputValue(), "");
+
+  await responsive(trades, "/account", "Your account", "account");
+  await trades.setViewportSize({ width: 390, height: 900 });
+  const builders = trades.getByRole("checkbox", { name: "Builders", exact: true });
+  const plumbing = trades.getByRole("checkbox", { name: "Plumbing", exact: true });
+  const roofing = trades.getByRole("checkbox", { name: "Roofing", exact: true });
+  assert.equal(await builders.isChecked(), true);
+  assert.equal(await plumbing.isChecked(), true);
+  await plumbing.uncheck();
+  await roofing.check();
+  await trades.getByRole("button", { name: "Save profile", exact: true }).click();
+  await text(trades, "Profile saved.");
   await visit(trades, "/account");
+  assert.equal(await builders.isChecked(), true);
+  assert.equal(await plumbing.isChecked(), false);
+  assert.equal(await roofing.isChecked(), true);
+  await trades.setViewportSize({ width: 1440, height: 1000 });
+
+  await visit(publicPage, "/trades?q=Browser+Smoke+Building&trade=roofing");
+  await directoryCard.getByText("Roofing", { exact: true }).waitFor();
+  await visit(publicPage, "/trades?q=Browser+Smoke+Building&trade=plumbing");
+  await text(publicPage, "No matching tradespeople");
+  console.log("Verified multi-trade signup, mobile profile edits, directory filters, and direct requests.");
+
   await trades.getByLabel("Document name").fill("Browser smoke insurance");
   await trades.getByLabel("File", { exact: true }).setInputFiles("public/images/builders.webp");
   await trades.getByRole("button", { name: "Submit document", exact: true }).click();

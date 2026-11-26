@@ -120,3 +120,43 @@ test("billing events are transactional and cannot double-credit purchases", asyn
   assert.equal(ok(await event("refund", { event_kind: "refunded", total_cents: 2000 })), false);
   assert.equal(Number(ok(await trade.client.rpc("token_balance"))), 3);
 });
+
+test("tradies can replace their category selections while legacy profiles keep their trade", async (t) => {
+  const trade = await fixture("Fixture multi-trade", "tradesperson");
+  t.after(async () => {
+    await service.from("token_ledger").delete().eq("user_id", trade.id);
+    ok(await service.auth.admin.deleteUser(trade.id));
+  });
+  const homeowner = await fixture("Fixture categories homeowner", "homeowner");
+  t.after(async () => {
+    ok(await service.auth.admin.deleteUser(homeowner.id));
+  });
+
+  const categorySlugs = async (client, id) =>
+    ok(await client.from("profile_trade_categories").select("category_slug").eq("profile_id", id).order("category_slug"))
+      .map(({ category_slug }) => category_slug);
+  const publicClient = anonymous();
+  const profile = { display_name: "Fixture multi-trade", business_name: "Fixture Building", postcode: "1025" };
+  assert.deepEqual(await categorySlugs(publicClient, trade.id), ["builders"]);
+
+  await action(trade.client, "profile", { ...profile, category_slugs: ["plumbing", "builders"] });
+  assert.deepEqual(await categorySlugs(publicClient, trade.id), ["builders", "plumbing"]);
+  assert.equal(ok(await publicClient.from("profiles").select("category_slug").eq("id", trade.id).single()).category_slug, "builders");
+
+  for (const category_slugs of [[], ["builders", "missing-trade"], ["builders", "builders"]]) {
+    const result = await trade.client.rpc("market_action", { command: "profile", args: { ...profile, category_slugs } });
+    assert.ok(result.error, "Invalid selections should be rejected");
+  }
+  assert.deepEqual(await categorySlugs(publicClient, trade.id), ["builders", "plumbing"]);
+
+  await action(trade.client, "profile", { ...profile, category_slugs: ["roofing"] });
+  assert.deepEqual(await categorySlugs(publicClient, trade.id), ["roofing"]);
+  assert.equal(ok(await publicClient.from("profiles").select("category_slug").eq("id", trade.id).single()).category_slug, "roofing");
+  assert.ok((await trade.client.from("profile_trade_categories").insert({
+    profile_id: trade.id, category_slug: "painting",
+  })).error, "Category edits require profile validation");
+
+  await action(homeowner.client, "profile", { ...profile, role: "tradesperson", category_slugs: ["builders"] });
+  assert.deepEqual(await categorySlugs(homeowner.client, homeowner.id), []);
+  assert.equal(ok(await homeowner.client.from("profiles").select("role").eq("id", homeowner.id).single()).role, "homeowner");
+});
