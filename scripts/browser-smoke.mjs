@@ -22,6 +22,35 @@ async function visit(current, path) {
   await current.locator("main h1").first().waitFor({ state: "visible" });
 }
 
+async function visitWithRealtime(current, path) {
+  const subscribed = Promise.withResolvers();
+  const watchSocket = (socket) => {
+    if (!new URL(socket.url()).pathname.endsWith("/realtime/v1/websocket")) return;
+    socket.on("framereceived", ({ payload }) => {
+      if (typeof payload !== "string") return;
+      const frame = JSON.parse(payload);
+      if (!Array.isArray(frame)) return;
+      const [, , topic, event, reply] = frame;
+      if (event === "phx_reply" && topic?.startsWith("realtime:inbox:") && reply?.status === "ok") subscribed.resolve();
+    });
+  };
+  current.on("websocket", watchSocket);
+  let timeout;
+  try {
+    await visit(current, path);
+    await Promise.race([subscribed.promise, new Promise((_, reject) => {
+      timeout = setTimeout(() => reject(new Error("Private inbox subscription did not connect on " + path)), 12000);
+    })]);
+  } finally {
+    clearTimeout(timeout);
+    current.off("websocket", watchSocket);
+  }
+}
+
+async function pageLoadTime(current) {
+  return current.evaluate(() => performance.timeOrigin);
+}
+
 async function text(current, name) {
   await current.getByText(name, { exact: true }).first().waitFor({ state: "visible" });
 }
@@ -67,6 +96,8 @@ async function register(current, name, role) {
   const verification = await mailFor(email, "Verify your Trade Seekerz email");
   await current.goto(linkIn(verification));
   await current.getByRole("heading", { name: "Set up your profile", exact: true }).waitFor();
+  const account = current.locator(".header-account");
+  await account.getByText("Account", { exact: true }).waitFor();
   await current.getByLabel("Full name").fill(name);
   await current.getByLabel("Postcode").fill("1025");
   if (role === "tradesperson") {
@@ -79,7 +110,8 @@ async function register(current, name, role) {
   }
   await current.getByRole("button", { name: "Finish setup", exact: true }).click();
   await text(current, "Your account is ready.");
-  const accountMenu = current.locator(".header-account summary");
+  const accountMenu = account.locator("summary");
+  await account.getByText(name.split(" ")[0], { exact: true }).waitFor();
   await accountMenu.click();
   const accountLinks = current.getByRole("navigation", { name: "Account navigation" });
   await accountLinks.getByRole("button", { name: "Sign out", exact: true }).waitFor();
@@ -89,6 +121,16 @@ async function register(current, name, role) {
   assert.equal(await accountLinks.getByRole("link", { name: "Finish setup", exact: true }).count(), 0,
     "The account menu should update on the redirect immediately after setup");
   await accountMenu.press("Escape");
+  for (const width of [1440, 390]) {
+    await current.setViewportSize({ width, height: 1000 });
+    const cards = await current.locator(".workspace-stat").evaluateAll((elements) => elements.map((element) => {
+      const { top, height } = element.getBoundingClientRect();
+      return { top, height };
+    }));
+    assert.equal(cards.length, 3);
+    assert.deepEqual(cards, [cards[0], cards[0], cards[0]], `Dashboard cards should align at ${width}px`);
+  }
+  await current.setViewportSize({ width: 1440, height: 1000 });
   return email;
 }
 
@@ -116,7 +158,7 @@ try {
   await publicPage.getByRole("heading", { name: "Welcome back", exact: true }).waitFor();
 
   const homeownerEmail = await register(home, "Browser Owner", "homeowner");
-  const tradeEmail = await register(trades, "Browser Tradie", "tradesperson");
+  const tradeEmail = await register(trades, "Taylor Tradie", "tradesperson");
   console.log("Verified both registration and onboarding flows.");
 
   await visit(publicPage, "/trades?q=Browser+Smoke+Building&trade=plumbing");
@@ -180,28 +222,37 @@ try {
   const photos = ok(await service.from("projects").select("photo_path").eq("id", projectId).single());
   assert.ok(photos.photo_path, "Job photo recorded in private storage");
 
+  await visitWithRealtime(home, "/dashboard");
+  const dashboardLoad = await pageLoadTime(home);
+  const homeMainNav = home.getByRole("navigation", { name: "Main navigation" });
+  const jobDot = homeMainNav.locator('[data-nav-unread="jobs"]');
+  await jobDot.waitFor({ state: "hidden" });
   await responsive(trades, "/jobs?q=Browser+smoke", "Find jobs", "jobs");
   await trades.getByRole("link", { name: "Browser smoke timber fence", exact: true }).click();
   await trades.getByLabel("Introduce yourself").fill("I can supply the timber and replace the complete fence this week.");
   await trades.getByRole("button", { name: "Apply for 1 token", exact: true }).click();
   await text(trades, "Application sent. You can now submit a quote.");
+  await jobDot.waitFor();
+  await home.getByRole("link", { name: /You have a new job application/ }).waitFor();
+  assert.equal(await pageLoadTime(home), dashboardLoad, "Job notifications should update the open dashboard");
   await trades.getByText("Submit a quote", { exact: true }).click();
   await trades.getByLabel("Quote amount").fill("1450");
   await trades.getByLabel("Scope of work").fill("Includes posts, panels, fasteners, labour and old material removal.");
   await trades.getByRole("button", { name: "Share quote", exact: true }).click();
   await text(trades, "Quote shared with the homeowner.");
   await mailFor(homeownerEmail, "A tradesperson sent a quote");
+  await home.getByRole("link", { name: /A tradesperson sent a quote/ }).waitFor();
   console.log("Verified project posting, secure photo upload, search, tokens, quotes and transactional mail.");
 
-  await visit(home, "/dashboard");
-  const homeMainNav = home.getByRole("navigation", { name: "Main navigation" });
-  const jobDot = homeMainNav.locator('[data-nav-unread="jobs"]');
-  await jobDot.waitFor();
   await home.getByRole("button", { name: "Mark all as read", exact: true }).click();
   await jobDot.waitFor({ state: "hidden" });
+  await home.setViewportSize({ width: 390, height: 900 });
+  const mobileDot = home.locator('.mobile-menu [data-nav-unread="menu"]');
+  await mobileDot.waitFor({ state: "hidden" });
 
   await visit(trades, "/messages");
-  await trades.getByLabel("Message", { exact: true }).fill("We can start on Friday morning.");
+  await trades.getByRole("textbox", { name: "Message", exact: true }).fill("We can start on Friday morning.");
+  assert.equal(await trades.locator(".message-compose textarea:visible").count(), 1);
   const releaseMessageRequest = Promise.withResolvers();
   const inboxUrl = (url) => url.pathname === "/messages";
   const holdMessageRequest = async (route) => {
@@ -219,9 +270,12 @@ try {
     await trades.unroute(inboxUrl, holdMessageRequest);
   }
   await text(trades, "Message sent.");
+  await mobileDot.waitFor();
+  await home.setViewportSize({ width: 1440, height: 900 });
+  await homeMainNav.locator('[data-nav-unread="messages"]').waitFor();
+  assert.equal(await pageLoadTime(home), dashboardLoad, "Unread badges should update without a page reload");
   await home.setViewportSize({ width: 390, height: 900 });
-  await visit(home, "/messages");
-  const mobileDot = home.locator('.mobile-menu [data-nav-unread="menu"]');
+  await visitWithRealtime(home, "/messages");
   await mobileDot.waitFor();
   await home.getByRole("navigation", { name: "Conversations" }).getByRole("img", { name: "Unread messages", exact: true }).waitFor();
   const thread = home.getByRole("link", { name: /Browser smoke timber fence/ });
@@ -231,16 +285,29 @@ try {
   assert.ok(application, "The mobile conversation URL identifies the application");
   await text(home, "We can start on Friday morning.");
   await mobileDot.waitFor({ state: "hidden" });
-  await home.getByLabel("Message", { exact: true }).fill("   ");
+  await home.getByRole("textbox", { name: "Message", exact: true }).fill("   ");
   await home.getByRole("button", { name: "Send message", exact: true }).click();
   await text(home, "Check the form fields and try again.");
   assert.equal(new URL(home.url()).searchParams.get("application"), application, "Validation should keep the conversation open");
-  await home.getByLabel("Message", { exact: true }).fill("Friday works for us. Please use the side gate.");
+  await visitWithRealtime(trades, "/messages?application=" + application);
+  const tradeChatLoad = await pageLoadTime(trades);
+  const tradeDraft = trades.getByRole("textbox", { name: "Message", exact: true });
+  await tradeDraft.fill("Thanks for the side gate instructions.");
+  await home.getByRole("textbox", { name: "Message", exact: true }).fill("Friday works for us. Please use the side gate.");
   await home.getByRole("button", { name: "Send message", exact: true }).click();
   await text(home, "Message sent.");
-  await visit(trades, "/messages?application=" + application);
   await text(trades, "Friday works for us. Please use the side gate.");
-  const messageReport = home.locator("details").filter({ has: home.getByText("Report message", { exact: true }) });
+  assert.equal(await pageLoadTime(trades), tradeChatLoad, "A reply should appear in the open desktop chat");
+  assert.equal(await tradeDraft.inputValue(), "Thanks for the side gate instructions.");
+
+  const mobileChatLoad = await pageLoadTime(home);
+  const homeownerDraft = home.getByRole("textbox", { name: "Message", exact: true });
+  await homeownerDraft.fill("See you on Friday.");
+  await trades.getByRole("button", { name: "Send message", exact: true }).click();
+  await text(home, "Thanks for the side gate instructions.");
+  assert.equal(await pageLoadTime(home), mobileChatLoad, "A reply should appear in the open mobile chat");
+  assert.equal(await homeownerDraft.inputValue(), "See you on Friday.");
+  const messageReport = home.locator("details").filter({ has: home.getByText("Report message", { exact: true }) }).first();
   await messageReport.getByText("Report message", { exact: true }).click();
   await messageReport.getByLabel("Reason", { exact: true }).fill("Inbox message report for local moderation verification.");
   await messageReport.getByRole("button", { name: "Send report", exact: true }).click();
@@ -269,7 +336,7 @@ try {
   await reportBox.getByLabel("Reason", { exact: true }).fill("Browser smoke report for the admin moderation workflow.");
   await reportBox.getByRole("button", { name: "Send report", exact: true }).click();
   await text(home, "Report sent for review.");
-  console.log("Verified messaging, quote award, job completion, review and reporting.");
+  console.log("Verified live notifications, desktop and mobile chat, quote award, job completion, review and reporting.");
 
   await visit(trades, "/billing");
   await trades.getByRole("button", { name: "Buy tokens", exact: true }).click();

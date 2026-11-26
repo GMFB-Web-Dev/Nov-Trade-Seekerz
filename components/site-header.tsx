@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { supabaseEnv } from "@/lib/env";
 import { getViewer } from "@/lib/viewer";
 import { HeaderNavigation } from "./header-navigation";
 
@@ -12,6 +13,7 @@ const publicLinks = [directory, findJobs, { href: "/how-it-works", label: "How i
 export async function SiteHeader() {
   const viewer = await getViewer();
   const profile = viewer?.profile;
+  const accountName = profile?.display_name?.trim().split(/\s+/, 1)[0];
   const active = profile?.status === "active";
   const ready = active && Boolean(profile.onboarded_at);
   const tradie = ready && profile.role === "tradesperson";
@@ -33,7 +35,8 @@ export async function SiteHeader() {
       <Link className="brand" href="/" aria-label="Trade Seekerz home">
         <Image src="/images/logo.png" width={136} height={44} alt="Trade Seekerz" priority />
       </Link>
-      <HeaderNavigation links={links} primary={primary} account={account} unreadUserId={ready ? viewer?.user.id : undefined} />
+      <HeaderNavigation links={links} primary={primary} account={account} accountName={accountName}
+        activity={ready && viewer ? { userId: viewer.user.id, ...supabaseEnv() } : undefined} />
     </div>
   </header>;
 }

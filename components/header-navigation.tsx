@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, LogOut, Menu, UserRound } from "lucide-react";
-import { useEffect, useId, useState, type FocusEvent, type KeyboardEvent } from "react";
+import { useId, type FocusEvent, type KeyboardEvent } from "react";
 import { logout } from "@/app/actions/auth";
-import { navigationUnreadEvent } from "@/lib/navigation-unread";
+import { useLiveActivity, type ActivityConnection } from "@/lib/use-live-activity";
 
 type NavItem = { href: string; label: string };
-type NavigationUnread = { userId: string | null; messages: boolean; jobs: boolean };
 
 function dismissMenu(element: HTMLElement) {
   const menu = element.closest("details");
@@ -25,54 +24,16 @@ function dismissOnEscape(event: KeyboardEvent<HTMLDetailsElement>) {
   event.currentTarget.querySelector("summary")?.focus();
 }
 
-function useNavigationUnread(userId: string | undefined, pathname: string) {
-  const [unread, setUnread] = useState<NavigationUnread | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-    let request: AbortController | undefined;
-
-    async function update() {
-      if (document.hidden) return;
-      request?.abort();
-      const controller = new AbortController();
-      request = controller;
-      try {
-        const response = await fetch("/api/nav-unread", { cache: "no-store", signal: controller.signal });
-        if (!response.ok) return;
-        const next: NavigationUnread = await response.json();
-        if (!controller.signal.aborted) setUnread(next.userId === userId ? next : null);
-      } catch {
-        // Keep the last result until the next refresh.
-      }
-    }
-
-    void update();
-    const timer = window.setInterval(update, 30_000);
-    window.addEventListener("focus", update);
-    window.addEventListener(navigationUnreadEvent, update);
-    document.addEventListener("visibilitychange", update);
-    return () => {
-      request?.abort();
-      window.clearInterval(timer);
-      window.removeEventListener("focus", update);
-      window.removeEventListener(navigationUnreadEvent, update);
-      document.removeEventListener("visibilitychange", update);
-    };
-  }, [userId, pathname]);
-
-  return unread?.userId === userId ? unread : null;
-}
-
-export function HeaderNavigation({ links, primary, account, unreadUserId }: {
+export function HeaderNavigation({ links, primary, account, accountName, activity }: {
   links: NavItem[];
   primary: NavItem;
   account: NavItem[];
-  unreadUserId?: string;
+  accountName?: string;
+  activity?: ActivityConnection;
 }) {
   const pathname = usePathname();
   const description = useId();
-  const unread = useNavigationUnread(unreadUserId, pathname);
+  const unread = useLiveActivity(activity, pathname);
   const hasUnread = Boolean(unread?.messages || unread?.jobs);
   const current = (href: string) => pathname === href ? "page" : pathname.startsWith(href + "/") ? "true" : undefined;
   const navigation = (items: NavItem[]) => items.map(({ href, label }) => {
@@ -95,7 +56,11 @@ export function HeaderNavigation({ links, primary, account, unreadUserId }: {
     <nav className="header-links" aria-label="Main navigation">{navigation(desktopLinks)}</nav>
     <div className="header-actions">
       {account.length ? <details className="header-account" onBlur={dismissOnBlur} onKeyDown={dismissOnEscape}>
-        <summary><UserRound size={17} aria-hidden="true" /> Account <ChevronDown size={14} aria-hidden="true" /></summary>
+        <summary aria-label={accountName ? `${accountName}, account menu` : undefined}>
+          <UserRound size={17} aria-hidden="true" />
+          <span className="header-account-name" dir="auto">{accountName || "Account"}</span>
+          <ChevronDown size={14} aria-hidden="true" />
+        </summary>
         <nav className="header-menu-panel" aria-label="Account navigation">{navigation(account)}{signOut}</nav>
       </details> : <Link className="header-sign-in" href="/login" aria-current={current("/login")}>Sign in</Link>}
       <Link className="button header-primary" href={primary.href} aria-current={current(primary.href)}>{primary.label}</Link>

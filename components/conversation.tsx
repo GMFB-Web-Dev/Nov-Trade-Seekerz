@@ -11,7 +11,7 @@ export function Conversation({ projectId, applicationId, me, messages, open, inb
 }) {
   const lastUnread = messages.findLast((message) => message.recipient_id === me && !message.read_at);
   return <div className="conversation">
-    {lastUnread && <MessageReadMarker lastMessageId={lastUnread.id} refreshInbox={Boolean(inboxPage)} />}
+    {lastUnread && <MessageReadMarker lastMessageId={lastUnread.id} />}
     {!messages.length ? <p className="conversation-empty">{open ? "Start the conversation with a message about the job." : "There are no messages in this conversation yet."}</p>
       : <ol className="message-history" aria-label="Message history">
         {messages.map((message) => <li className={"message-bubble" + (message.sender_id === me ? " mine" : "")} key={message.id}>

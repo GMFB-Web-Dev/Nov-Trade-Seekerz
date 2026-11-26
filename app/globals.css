@@ -94,6 +94,7 @@ svg { flex-shrink: 0; }
 .header-account { position: relative; }
 .header-account summary, .mobile-menu summary { list-style: none; }
 .header-account summary::-webkit-details-marker, .mobile-menu summary::-webkit-details-marker { display: none; }
+.header-account-name { max-inline-size: 8rem; overflow: hidden; text-overflow: ellipsis; }
 .header-menu-panel {
   position: absolute; right: 0; top: calc(100% + 8px); min-width: 224px;
   display: grid; gap: 4px; padding: 8px; background: white; border: 1px solid var(--line); border-radius: var(--radius);

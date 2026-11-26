@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import ts from "typescript";
 
 const cli = "supabase";
-const omitted = "realtime,imgproxy,edge-runtime,logflare,vector,supavisor";
+const omitted = "imgproxy,edge-runtime,logflare,vector,supavisor";
 const command = process.argv[2];
 
 function run(args, stdio = "inherit") {
