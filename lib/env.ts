@@ -35,6 +35,10 @@ export function sandboxEnabled() {
   return process.env.LOCAL_TEST_BILLING === "1" && isLoopback(appUrl()) && isLoopback(supabaseEnv().url);
 }
 
+export function resendEnabled() {
+  return process.env.RESEND_ENABLED === "1" && !isLoopback(appUrl());
+}
+
 export function liveIntegrationsEnabled() {
   return process.env.LIVE_INTEGRATIONS === "1" && !isLoopback(appUrl());
 }

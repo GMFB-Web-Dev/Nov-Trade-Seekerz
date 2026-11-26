@@ -1,7 +1,7 @@
 import { retryNotifications } from "@/app/actions/admin";
 import { Tag } from "@/components/ui";
 import type { AdminFilter } from "@/lib/admin";
-import { isLoopback, liveIntegrationsEnabled, sandboxEnabled, supabaseEnv } from "@/lib/env";
+import { isLoopback, liveIntegrationsEnabled, resendEnabled, sandboxEnabled, supabaseEnv } from "@/lib/env";
 import { dollars, shortDate } from "@/lib/format";
 import { db } from "@/lib/supabase";
 import { AdminTable, FilterBar } from "./table";
@@ -72,7 +72,7 @@ export function Settings() {
   return <div className="panel stack"><h2>Service status</h2>
     <p>Database <strong>{isLocal ? "Local Supabase" : "Configured Supabase project"}</strong></p>
     <p>Billing <strong>{checkout}</strong></p>
-    <p>Transactional mail <strong>{isLocal ? "Mailpit" : liveIntegrationsEnabled() && process.env.RESEND_API_KEY ? "Resend" : "Delivery disabled"}</strong></p>
+    <p>Transactional mail <strong>{isLocal ? "Mailpit" : resendEnabled() && process.env.RESEND_API_KEY && process.env.EMAIL_FROM ? "Resend" : "Delivery disabled"}</strong></p>
     <div className="buttons">{isLocal && isLoopback(mailpit) && <a className="button secondary" href={mailpit}>Open local mail inbox</a>}
       <form action={retryNotifications}><button className="button" type="submit">Process due notifications</button></form></div>
   </div>;

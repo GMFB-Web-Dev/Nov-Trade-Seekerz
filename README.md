@@ -46,7 +46,7 @@ Checkout defaults to a local simulator. It supports successful and failed paymen
 
 App notifications enter a database outbox in the same transaction as the triggering activity. The app processes due deliveries after the response. Staff can also process due deliveries from Admin Settings. Supabase Auth templates and marketplace notifications are captured by Mailpit locally.
 
-Optional provider adapters are present for Stripe Checkout and Resend. They require explicit integration configuration and a non-loopback app origin. Connecting a real environment requires confirming the Stripe prices and webhook configuration, verifying the Resend sender and setting custom SMTP in Supabase Auth, and running an integration rehearsal with separate provider test credentials.
+Optional provider adapters are present for Stripe Checkout and Resend. Hosted Resend notifications use `RESEND_ENABLED=1`, `RESEND_API_KEY`, and `EMAIL_FROM`. Stripe uses its own `LIVE_INTEGRATIONS` flag. Both require a non-loopback app origin. Connecting a real environment requires confirming the Stripe prices and webhook configuration, verifying the Resend sender and setting custom SMTP in Supabase Auth, and running an integration rehearsal with separate provider test credentials.
 
 ## Verify changes
 

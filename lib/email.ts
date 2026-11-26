@@ -1,11 +1,11 @@
 import "server-only";
 import nodemailer from "nodemailer";
-import { appUrl, isLoopback, liveIntegrationsEnabled, supabaseEnv } from "./env";
+import { appUrl, isLoopback, resendEnabled, supabaseEnv } from "./env";
 import { serviceDb } from "./supabase";
 
 export async function deliverNotifications() {
   const local = isLoopback(supabaseEnv().url) && isLoopback(appUrl());
-  const apiKey = liveIntegrationsEnabled() ? process.env.RESEND_API_KEY : undefined;
+  const apiKey = resendEnabled() ? process.env.RESEND_API_KEY?.trim() : undefined;
   if (!local && !apiKey) return;
 
   const client = serviceDb();
