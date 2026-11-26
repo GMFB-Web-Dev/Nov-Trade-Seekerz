@@ -2,8 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 
 const links = [
-  { title: "Homeowners", links: [["Post a job", "/projects/new"], ["Find a tradesperson", "/trades"], ["How it works", "/how-it-works"]] },
-  { title: "Tradespeople", links: [["Browse jobs", "/jobs"], ["Trade memberships", "/billing"], ["Join Trade Seekerz", "/register?role=tradesperson"]] },
+  { title: "Homeowners", links: [["Post a job", "/projects/new"], ["Find a tradie", "/trades"], ["How it works", "/how-it-works"]] },
+  { title: "Tradespeople", links: [["Find jobs", "/jobs"], ["Tokens and membership", "/billing"], ["Create a trade account", "/register?role=tradesperson"]] },
   { title: "Trade Seekerz", links: [["About us", "/about"], ["Contact us", "/contact"], ["Sign in", "/login"]] },
 ];
 

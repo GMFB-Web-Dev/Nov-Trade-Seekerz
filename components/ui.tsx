@@ -17,8 +17,8 @@ export function PageTitle({ title, description, action }: { title: string; descr
   return <div className="page-title"><div><h1>{title}</h1>{description && <p>{description}</p>}</div>{action}</div>;
 }
 
-export function Empty({ title, children }: { title: string; children?: ReactNode }) {
-  return <div className="empty"><Inbox size={30} aria-hidden /><h3>{title}</h3>{children && <p>{children}</p>}</div>;
+export function Empty({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
+  return <div className="empty"><Inbox size={24} aria-hidden /><h3>{title}</h3>{children && <p>{children}</p>}{action}</div>;
 }
 
 export function Tag({ value, tone }: { value: string; tone?: "blue" | "good" | "neutral" }) {
@@ -32,14 +32,14 @@ export function Pagination({ page, total, size, path, params = {} }: {
   if (pages < 2 && page < 2) return null;
   const href = (number: number) => path + "?" + new URLSearchParams({ ...params, page: String(number) }).toString();
   return <nav className="pagination" aria-label="Pagination">
-    {page > 1 ? <Link className="button secondary small" href={href(page - 1)}><ChevronLeft size={16} /> Previous</Link> : <span />}
+    {page > 1 ? <Link className="button secondary small" href={href(page - 1)}><ChevronLeft size={16} aria-hidden="true" /> Previous</Link> : <span aria-hidden="true" />}
     <span>Page {page} of {pages}</span>
-    {page < pages ? <Link className="button secondary small" href={href(page + 1)}>Next <ChevronRight size={16} /></Link> : <span />}
+    {page < pages ? <Link className="button secondary small" href={href(page + 1)}>Next <ChevronRight size={16} aria-hidden="true" /></Link> : <span aria-hidden="true" />}
   </nav>;
 }
 
 export function Back({ to, children }: { to: string; children: ReactNode }) {
-  return <Link className="back-link" href={to}><ChevronLeft size={17} />{children}</Link>;
+  return <Link className="back-link" href={to}><ChevronLeft size={17} aria-hidden="true" />{children}</Link>;
 }
 
 export type Action = (data: FormData) => void | Promise<void>;

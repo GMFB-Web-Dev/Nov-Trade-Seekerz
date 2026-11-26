@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Bell, BriefcaseBusiness, CircleCheck, ClipboardList, Coins, FolderOpen, LayoutGrid, MessageSquareText, Plus, Wallet } from "lucide-react";
+import { Bell, BriefcaseBusiness, CircleCheck, ClipboardList, Coins, FolderOpen, Plus } from "lucide-react";
 import { markNotificationsRead } from "@/app/actions/market";
 import { ProjectCard } from "@/components/project-card";
-import { Empty, Notice, PageTitle, Pagination, Tag } from "@/components/ui";
+import { Empty, Notice, PageTitle, Pagination } from "@/components/ui";
 import { param, shortDate, type Query } from "@/lib/format";
 import { projectImage } from "@/lib/projects";
 import { db } from "@/lib/supabase";
@@ -15,7 +15,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const { user, profile } = await member();
   const isTrade = profile.role === "tradesperson";
   const query = await searchParams;
-  const group = param(query.status);
+  const status = param(query.status);
+  const group = ["open", "awarded", "history"].includes(status) ? status : "";
   const page = Math.max(1, Math.min(200, Math.floor(Number(param(query.page)) || 1)));
   const range = [(page - 1) * size, page * size - 1] as const;
   const client = await db();
@@ -41,50 +42,66 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     isTrade ? null : listings.order("created_at", { ascending: false }).range(...range),
     isTrade ? applications.order("created_at", { ascending: false }).range(...range) : null,
     isTrade ? client.rpc("token_balance") : null,
-    client.from("notifications").select("*").is("read_at", null).order("created_at", { ascending: false }).limit(8),
+    client.from("notifications").select("*", { count: "exact" }).is("read_at", null).order("created_at", { ascending: false }).limit(8),
     countOpen, countAwarded,
   ]);
-  const photos = await Promise.all((own?.data ?? []).map(projectImage));
-  const filters = [
-    { value: "", name: isTrade ? "All applications" : "All jobs", Icon: LayoutGrid },
-    { value: "open", name: isTrade ? "Pending applications" : "Open jobs", Icon: ClipboardList },
-    { value: "awarded", name: "Awarded jobs", Icon: CircleCheck },
-    { value: "history", name: "History", Icon: FolderOpen },
+  const rows = isTrade
+    ? (applied?.data ?? []).map((application) => ({ project: application.projects, application }))
+    : (own?.data ?? []).map((project) => ({ project, application: undefined }));
+  const photos = await Promise.all(rows.map(({ project }) => projectImage(project)));
+  const total = own?.count ?? applied?.count ?? 0;
+  const activity = notifications.data ?? [];
+  const title = isTrade ? "My applications" : "My jobs";
+  const openLabel = isTrade ? "Pending applications" : "Open jobs";
+  const actionHref = isTrade ? "/jobs" : "/projects/new";
+  const actionLabel = isTrade ? "Find jobs" : "Post a job";
+  const stats = [
+    { label: openLabel, value: totalOpen.count ?? 0, Icon: isTrade ? ClipboardList : FolderOpen },
+    { label: "Awarded jobs", value: totalAwarded.count ?? 0, Icon: CircleCheck },
+    isTrade
+      ? { label: "Available tokens", value: balance?.data ?? 0, Icon: Coins }
+      : { label: "Unread notifications", value: notifications.count ?? 0, Icon: Bell },
   ];
+  const filters = [
+    { value: "", name: "All" },
+    { value: "open", name: isTrade ? "Pending" : "Open" },
+    { value: "awarded", name: "Awarded" },
+    { value: "history", name: "History" },
+  ];
+
   return <div className="market-surface"><div className="container page">
-    <PageTitle title={"Welcome, " + profile.display_name.split(" ")[0]} description={isTrade ? "Manage applications, quotes and tokens." : "Manage your listings, applicants and quotes."}
-      action={<Link className="button" href={isTrade ? "/jobs" : "/projects/new"}>{isTrade ? <BriefcaseBusiness size={17} /> : <Plus size={18} />}{isTrade ? "Browse jobs" : "Post a job"}</Link>} />
+    <PageTitle title={title} description={isTrade ? "Track your applications and quotes." : "Manage your listings, applications, and quotes."}
+      action={<Link className="button" href={actionHref}>{isTrade ? <BriefcaseBusiness size={17} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}{actionLabel}</Link>} />
     <Notice query={query} />
-    <div className="kpis">
-      <div className="kpi"><FolderOpen size={18} /><strong>{totalOpen.count ?? 0}</strong><span>{isTrade ? "Pending applications" : "Open jobs"}</span></div>
-      <div className="kpi"><CircleCheck size={18} /><strong>{totalAwarded.count ?? 0}</strong><span>Awarded jobs</span></div>
-      <div className="kpi">{isTrade ? <Coins size={18} /> : <Bell size={18} />}<strong>{isTrade ? balance?.data ?? 0 : notifications.data?.length ?? 0}</strong><span>{isTrade ? "Available tokens" : "Recent unread alerts"}</span></div>
-    </div>
-    <div className="dashboard-layout">
-      <aside className="sticky">
-        <nav className="panel side-links" aria-label="Dashboard sections">
-          {filters.map(({ value, name, Icon }) => <Link key={name} href={value ? "/dashboard?status=" + value : "/dashboard"} aria-current={group === value ? "page" : undefined}><Icon size={16} />{name}</Link>)}
-          <Link href="/messages"><MessageSquareText size={16} />Messages</Link>
-          {isTrade && <Link href="/billing"><Wallet size={16} />Tokens and membership</Link>}
-        </nav>
-        {!!notifications.data?.length && <section className="panel">
-          <h3>Notifications</h3><ul className="notification-list">{notifications.data.map((note) =>
-            <li className="unread" key={note.id}><Link href={"/projects/" + note.project_id}>{note.subject}<time>{shortDate(note.created_at)}</time></Link></li>)}</ul>
-          <form action={markNotificationsRead}><button className="button secondary small">Mark all as read</button></form>
-        </section>}
-      </aside>
-      <section>
-        <div className="list-head"><strong>{filters.find((filter) => filter.value === group)?.name || (isTrade ? "Applications" : "Jobs")}</strong><span>{(own?.count ?? applied?.count) || 0} results</span></div>
-        {isTrade ? (applied?.data?.length ? <div className="project-list">
-          {applied.data.map((entry) => <article className="panel stack" key={entry.id}>
-            <div className="section-head"><h3><Link href={"/projects/" + entry.project_id}>{entry.projects?.title || "Job unavailable"}</Link></h3><Tag value={entry.status} /></div>
-            <p>{entry.projects?.suburb} · Applied {shortDate(entry.created_at)}</p>
-            <Link className="inline-link" href={"/projects/" + entry.project_id}>View application</Link>
-          </article>)}</div> : <Empty title="No applications here">Browse jobs and apply when you find one that fits.</Empty>)
-          : (own?.data?.length ? <div className="project-list">{own.data.map((project, index) => <ProjectCard key={project.id} project={project} photo={photos[index]} />)}</div>
-            : <Empty title="No jobs here">Post a job to receive applications and quotes.</Empty>)}
-        <Pagination page={page} total={own?.count ?? applied?.count ?? 0} size={size} path="/dashboard" params={{ status: group }} />
+    <dl className="workspace-stats">
+      {stats.map(({ label, value, Icon }) => <div className="panel workspace-stat" key={label}>
+        <dt><Icon size={19} aria-hidden="true" />{label}</dt>
+        <dd>{value}</dd>
+      </div>)}
+    </dl>
+    <div className="workspace-dashboard">
+      <section aria-labelledby="workspace-results">
+        <div className="workspace-bar">
+          <nav className="workspace-tabs" aria-label={isTrade ? "Application status" : "Job status"}>
+            {filters.map(({ value, name }) => <Link key={name} href={value ? "/dashboard?status=" + value : "/dashboard"} aria-current={group === value ? "page" : undefined}>{name}</Link>)}
+          </nav>
+          <h2 id="workspace-results">{total} {isTrade ? (total === 1 ? "application" : "applications") : (total === 1 ? "job" : "jobs")}</h2>
+        </div>
+        {rows.length ? <div className="project-list">
+          {rows.map(({ project, application }, index) => <ProjectCard key={project.id} project={project} photo={photos[index]}
+            applicationStatus={application?.status} appliedAt={application?.created_at} />)}
+        </div> : <Empty title={isTrade ? "No applications here" : "No jobs here"}
+          action={<Link className="button secondary" href={group ? "/dashboard" : actionHref}>{group ? "View all" : actionLabel}</Link>}>
+          {group ? "There are no results for this status." : isTrade ? "Find a job that fits your trade and apply to get started." : "Post a job to receive applications and quotes from local tradespeople."}
+        </Empty>}
+        <Pagination page={page} total={total} size={size} path="/dashboard" params={group ? { status: group } : {}} />
       </section>
+      {activity.length > 0 && <aside className="panel workspace-notifications" aria-labelledby="workspace-notifications">
+        <div className="section-head"><h2 id="workspace-notifications">Notifications</h2><Bell size={17} aria-hidden="true" /></div>
+        <ul className="notification-list">{activity.map((note) =>
+          <li key={note.id}><Link href={"/projects/" + note.project_id}>{note.subject}<time dateTime={note.created_at}>{shortDate(note.created_at)}</time></Link></li>)}</ul>
+        <form action={markNotificationsRead}><button className="button secondary small">Mark all as read</button></form>
+      </aside>}
     </div>
   </div></div>;
 }

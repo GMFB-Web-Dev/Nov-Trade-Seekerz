@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import "./globals.css";
+import "./workspace.css";
+import "./member-surfaces.css";
 
 export const metadata: Metadata = {
   title: { default: "Trade Seekerz", template: "%s | Trade Seekerz" },

@@ -24,6 +24,13 @@ export function param(value: string | string[] | undefined) {
 
 export type Query = Record<string, string | string[] | undefined>;
 
+export function inboxPath(application?: string, page = 1) {
+  const params = new URLSearchParams();
+  if (application) params.set("application", application);
+  if (page > 1) params.set("page", String(page));
+  return params.size ? "/messages?" + params : "/messages";
+}
+
 export function withNotice(path: string, kind: "error" | "success", message: string) {
   const url = new URL(path, "http://local.invalid");
   url.searchParams.set(kind, message);

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { appUrl } from "@/lib/env";
 import { email, failure, mutate, parse, postcode, safePath, text } from "@/lib/forms";
 import { withNotice } from "@/lib/format";
+import { jobJourney, jobJourneyLink } from "@/lib/job-journey";
 import { db } from "@/lib/supabase";
 
 const credentials = z.object({ email, password: z.string().min(8).max(128) });
@@ -18,24 +19,32 @@ const profileSchema = z.object({
 });
 
 export async function register(form: FormData) {
-  const input = parse(credentials.extend({ role, terms: z.literal("on") }), form, "/register");
+  const journey = jobJourney(form.get("next"));
+  const back = jobJourneyLink("/register", journey?.href);
+  const input = parse(credentials.extend({ role, terms: z.literal("on") }), form, back);
+  const next = journey?.role === input.role ? journey.href : undefined;
   const client = await db();
   const { error } = await client.auth.signUp({
     email: input.email, password: input.password,
-    options: { emailRedirectTo: appUrl() + "/auth/confirm", data: { onboarding_choice: input.role } },
+    options: {
+      emailRedirectTo: appUrl() + "/auth/confirm",
+      data: { onboarding_choice: input.role, onboarding_return: next },
+    },
   });
-  if (error) failure("/register", error.status === 429 ? "Wait a moment before trying again." : "Could not create an account. Use a valid email and a strong password.");
-  redirect(withNotice("/login", "success", "Check your email for a verification link. Then sign in to finish your profile."));
+  if (error) failure(back, error.status === 429 ? "Wait a moment before trying again." : "Could not create an account. Use a valid email and a strong password.");
+  redirect(withNotice(jobJourneyLink("/login", next), "success", "Check your email for a verification link. Then sign in to finish your profile."));
 }
 
 export async function login(form: FormData) {
-  const input = parse(credentials, form, "/login");
+  const next = safePath(form.get("next"), "/dashboard");
+  const back = jobJourneyLink("/login", next);
+  const input = parse(credentials, form, back);
   const client = await db();
   const { error } = await client.auth.signInWithPassword(input);
-  if (error) failure("/login", error.code === "email_not_confirmed"
+  if (error) failure(back, error.code === "email_not_confirmed"
     ? "Verify your email before signing in."
     : "Couldn’t sign in. Check your email and password.");
-  redirect(safePath(form.get("next"), "/dashboard"));
+  redirect(next);
 }
 
 export async function logout() {
@@ -62,9 +71,11 @@ export async function resetPassword(form: FormData) {
 }
 
 export async function completeProfile(form: FormData) {
-  const input = parse(profileSchema.extend({ role }), form, "/onboarding");
-  await mutate("onboard", input, "/onboarding");
-  redirect(withNotice("/dashboard", "success", "Your account is ready."));
+  const journey = jobJourney(form.get("next"));
+  const back = jobJourneyLink("/onboarding", journey?.href);
+  const input = parse(profileSchema.extend({ role }), form, back);
+  await mutate("onboard", input, back);
+  redirect(withNotice(journey?.role === input.role ? journey.href : "/dashboard", "success", "Your account is ready."));
 }
 
 export async function saveProfile(form: FormData) {

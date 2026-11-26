@@ -28,13 +28,17 @@ export function safePath(value: unknown, fallback: string) {
   return value;
 }
 
-export async function mutate(command: string, args: Record<string, Json | undefined>, back: string) {
+export async function marketCommand(command: string, args: Record<string, Json | undefined>) {
   const client = await db();
   const result = await client.rpc("market_action", { command, args });
-  if (result.error) {
-    const message = result.error.code === "P0001" ? result.error.message : "Could not save this change. Check the fields and try again.";
-    if (result.error.code !== "P0001") await operationalError("market-" + command, result.error.code);
-    failure(back, message);
-  }
+  if (!result.error) return { data: result.data, error: null };
+  if (result.error.code === "P0001") return { data: null, error: result.error.message };
+  await operationalError("market-" + command, result.error.code);
+  return { data: null, error: "Could not save this change. Check the fields and try again." };
+}
+
+export async function mutate(command: string, args: Record<string, Json | undefined>, back: string) {
+  const result = await marketCommand(command, args);
+  if (result.error !== null) failure(back, result.error);
   return result.data;
 }

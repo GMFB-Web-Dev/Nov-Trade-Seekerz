@@ -13,8 +13,8 @@ export default async function Contact({ searchParams }: { searchParams: Promise<
       <form action={submitContact} className="stack panel">
         <h2><MessageSquareText size={21} /> Send a message</h2>
         <Notice query={await searchParams} />
-        <div className="form-row"><label>Your name<input name="name" required minLength={2} maxLength={100}/></label>
-        <label>Email address<input type="email" name="email" required maxLength={254}/></label></div>
+        <div className="form-row"><label>Your name<input name="name" autoComplete="name" required minLength={2} maxLength={100} /></label>
+        <label>Email address<input type="email" name="email" autoComplete="email" required maxLength={254} /></label></div>
         <label>Message<textarea name="message" rows={5} required minLength={12} maxLength={2000}/></label>
         <label className="trap" aria-hidden="true">Website<input name="website" tabIndex={-1} autoComplete="off"/></label>
         <button className="button" type="submit">Send message</button>

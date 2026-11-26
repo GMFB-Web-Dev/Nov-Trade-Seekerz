@@ -15,12 +15,13 @@ export async function Accounts({ filter, kind, actor }: { filter: AdminFilter; k
   if (error) throw new Error("Could not load accounts.");
   return <>
     <FilterBar path={path} filter={filter} search="Name, business or email" states={kind === "users" ? ["deactivated"] : undefined} />
-    <AdminTable columns={["Account", "Role and status", "Joined", "Actions"]} total={data[0]?.total ?? 0} path={path} filter={filter}>
-      {data.map((account) => <tr key={account.id}>
-        <td><strong>{account.display_name || "Onboarding pending"}</strong><small>{account.email}</small>{account.business_name && <small>{account.business_name}</small>}</td>
-        <td><div className="chips"><Tag value={account.role || "Onboarding"} tone="neutral" /><Tag value={account.status} />{account.is_staff && <Tag value="Admin" />}</div></td>
-        <td>{shortDate(account.created_at)}</td>
-        <td>{actor === account.id ? <small>Your account</small> : <details><summary>Manage</summary>
+    <AdminTable total={data[0]?.total ?? 0} path={path} filter={filter} rows={data.map((account) => ({
+      id: account.id,
+      cells: {
+        Account: <><strong>{account.display_name || "Onboarding pending"}</strong><small>{account.email}</small>{account.business_name && <small>{account.business_name}</small>}</>,
+        "Role and status": <div className="chips"><Tag value={account.role || "Onboarding"} tone="neutral" /><Tag value={account.status} />{account.is_staff && <Tag value="Admin" />}</div>,
+        Joined: shortDate(account.created_at),
+        Actions: actor === account.id ? <small>Your account</small> : <details><summary>Manage</summary>
           <TaskForm action={changeUser} id={account.id} className="stack">
             <input type="hidden" name="section" value={kind} />
             <div className="buttons">
@@ -36,8 +37,8 @@ export async function Accounts({ filter, kind, actor }: { filter: AdminFilter; k
               <button className="button danger small" name="operation" value="delete">Permanently delete</button>
             </div></details>}
           </TaskForm>
-        </details>}</td>
-      </tr>)}
-    </AdminTable>
+        </details>,
+      },
+    }))} />
   </>;
 }

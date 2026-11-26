@@ -1,0 +1,354 @@
+.directory-page {
+  max-width: 1060px;
+}
+
+.directory-page .directory-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, .7fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.member-results-heading {
+  margin-bottom: 12px;
+}
+
+.member-results-heading h2 {
+  font-size: clamp(20px, 2.2vw, 26px);
+}
+
+.directory-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.directory-result {
+  min-width: 0;
+}
+
+.directory-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.directory-card:hover {
+  border-color: #aac6ee;
+  box-shadow: var(--shadow);
+}
+
+.directory-card-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.directory-card-heading h3 {
+  margin-bottom: 6px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.directory-card-heading > svg {
+  color: var(--primary);
+}
+
+.directory-card-heading .trade-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+}
+
+.directory-card .clamp {
+  margin-top: 0;
+  overflow-wrap: anywhere;
+}
+
+.directory-card .chips {
+  margin-top: auto;
+}
+
+.trade-profile-layout,
+.account-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
+  grid-template-areas: "content aside";
+  align-items: start;
+  gap: 24px;
+}
+
+.trade-profile-layout > .member-section-stack,
+.account-layout > .member-section-stack {
+  grid-area: content;
+}
+
+.trade-profile-summary,
+.account-navigation {
+  grid-area: aside;
+  position: sticky;
+  top: calc(var(--header-height, 68px) + 24px);
+}
+
+.trade-profile-summary h2 {
+  font-size: 20px;
+}
+
+.trade-profile-summary > .inline-link {
+  font-size: 14px;
+}
+
+.trade-review-list {
+  display: grid;
+  gap: 16px;
+}
+
+.trade-review {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.trade-review time {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.account-page {
+  max-width: 1060px;
+}
+
+.account-layout {
+  grid-template-columns: minmax(180px, 224px) minmax(0, 1fr);
+  grid-template-areas: "aside content";
+}
+
+.account-navigation {
+  padding: 8px;
+}
+
+.account-navigation a {
+  min-height: 40px;
+}
+
+.member-section {
+  scroll-margin-top: calc(var(--header-height, 68px) + 16px);
+}
+
+.member-section:target {
+  border-color: #aac6ee;
+}
+
+.member-section-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.member-section-stack > .panel + .panel {
+  margin-top: 0;
+}
+
+.member-section-form {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.member-section-form .form-row {
+  align-items: start;
+}
+
+.account-security-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.account-security-row h3 {
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.account-security-row p {
+  font-size: 14px;
+}
+
+.account-controls .account-security-row + details {
+  margin-top: 0;
+}
+
+.account-controls summary {
+  color: var(--red);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.member-activity-list {
+  display: grid;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.member-activity-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.member-activity-list li:first-child {
+  padding-top: 0;
+}
+
+.member-activity-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.member-activity-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.member-activity-copy time,
+.member-activity-copy p {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.member-activity-list .buttons {
+  gap: 8px;
+}
+
+.billing-page {
+  max-width: 1060px;
+}
+
+.billing-page .plan-grid,
+.billing-page .notice {
+  margin: 0;
+}
+
+.billing-balance {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.billing-balance > svg {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--blue-soft);
+}
+
+.billing-balance span {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.billing-unavailable {
+  align-items: center;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.billing-unavailable svg {
+  margin: 0;
+}
+
+.billing-activity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.billing-activity > .panel + .panel {
+  margin-top: 0;
+}
+
+.token-change {
+  font-variant-numeric: tabular-nums;
+}
+
+.token-change.positive {
+  color: var(--green);
+}
+
+.checkout-summary {
+  margin: 0;
+}
+
+.checkout-summary > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 8px 0;
+}
+
+.checkout-summary > div:last-child {
+  border-top: 1px solid var(--line);
+}
+
+.checkout-summary dt {
+  color: var(--muted);
+}
+
+.checkout-summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+@media (max-width: 830px) {
+  .directory-page .directory-search {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .billing-activity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 670px) {
+  .trade-profile-layout,
+  .account-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "aside" "content";
+    gap: 16px;
+  }
+
+  .trade-profile-summary,
+  .account-navigation {
+    position: static;
+  }
+
+  .account-navigation {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .directory-results {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 420px) {
+  .directory-page .directory-search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

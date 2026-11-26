@@ -115,11 +115,13 @@ try {
   await home.getByLabel("Job title").fill("Browser smoke timber fence");
   await home.getByLabel("Trade category").selectOption("builders");
   await home.getByLabel("Describe the work").fill("Replace our timber side fence, remove the old panels and allow for disposal.");
+  await home.getByRole("button", { name: "Continue", exact: true }).click();
   await home.getByLabel("Suburb").fill("Sandringham");
   await home.getByLabel("Postcode").fill("1025");
   await home.getByLabel("Minimum budget").fill("1000");
   await home.getByLabel("Maximum budget").fill("1900");
   await home.getByLabel("Job photo").setInputFiles("public/images/builders.webp");
+  await home.getByRole("button", { name: "Continue", exact: true }).click();
   await home.getByRole("button", { name: "Post job", exact: true }).click();
   await text(home, "Job posted.");
   const projectPath = new URL(home.url()).pathname;
@@ -128,7 +130,7 @@ try {
   const photos = ok(await service.from("projects").select("photo_path").eq("id", projectId).single());
   assert.ok(photos.photo_path, "Job photo recorded in private storage");
 
-  await responsive(trades, "/jobs?q=Browser+smoke", "Get jobs", "jobs");
+  await responsive(trades, "/jobs?q=Browser+smoke", "Find jobs", "jobs");
   await trades.getByRole("link", { name: "Browser smoke timber fence", exact: true }).click();
   await trades.getByLabel("Introduce yourself").fill("I can supply the timber and replace the complete fence this week.");
   await trades.getByRole("button", { name: "Apply for 1 token", exact: true }).click();
@@ -145,14 +147,42 @@ try {
   await trades.getByLabel("Message", { exact: true }).fill("We can start on Friday morning.");
   await trades.getByRole("button", { name: "Send message", exact: true }).click();
   await text(trades, "Message sent.");
-  await visit(home, "/messages");
+  await responsive(home, "/messages", "Messages", "messages");
+  await home.setViewportSize({ width: 390, height: 900 });
+  const thread = home.getByRole("link", { name: /Browser smoke timber fence/ });
+  await thread.click();
+  await home.waitForURL((url) => url.pathname === "/messages" && url.searchParams.has("application"));
+  const application = new URL(home.url()).searchParams.get("application");
+  assert.ok(application, "The mobile conversation URL identifies the application");
   await text(home, "We can start on Friday morning.");
+  await home.getByLabel("Message", { exact: true }).fill("   ");
+  await home.getByRole("button", { name: "Send message", exact: true }).click();
+  await text(home, "Check the form fields and try again.");
+  assert.equal(new URL(home.url()).searchParams.get("application"), application, "Validation should keep the conversation open");
+  await home.getByLabel("Message", { exact: true }).fill("Friday works for us. Please use the side gate.");
+  await home.getByRole("button", { name: "Send message", exact: true }).click();
+  await text(home, "Message sent.");
+  await visit(trades, "/messages?application=" + application);
+  await text(trades, "Friday works for us. Please use the side gate.");
+  const messageReport = home.locator("details").filter({ has: home.getByText("Report message", { exact: true }) });
+  await messageReport.getByText("Report message", { exact: true }).click();
+  await messageReport.getByLabel("Reason", { exact: true }).fill("Inbox message report for local moderation verification.");
+  await messageReport.getByRole("button", { name: "Send report", exact: true }).click();
+  await text(home, "Report sent for review.");
+  assert.equal(new URL(home.url()).pathname, "/messages", "Reporting from the inbox should keep the conversation open");
+  assert.equal(new URL(home.url()).searchParams.get("application"), application);
+  await home.getByRole("link", { name: "All conversations", exact: true }).click();
+  await thread.waitFor();
+  await home.setViewportSize({ width: 1440, height: 900 });
 
   await visit(home, projectPath);
   await home.getByRole("button", { name: "Accept quote and award job" }).click();
   await text(home, "Quote accepted and job awarded.");
   await home.getByRole("button", { name: "Mark as complete" }).click();
   await text(home, "Job completed.");
+  await visit(trades, "/messages?application=" + application);
+  await text(trades, "This conversation is closed.");
+  assert.equal(await trades.getByRole("button", { name: "Send message", exact: true }).count(), 0);
   await home.getByLabel("Review", { exact: true }).fill("The fence looks great and the site was left tidy.");
   await home.getByRole("button", { name: "Publish review" }).click();
   await text(home, "Review published.");
@@ -216,7 +246,7 @@ try {
   await banned.getByRole("button", { name: "Unban user" }).click();
   await text(admin, "Account updated.");
   await visit(trades, "/jobs");
-  await text(trades, "Get jobs");
+  await trades.getByRole("heading", { name: "Find jobs", exact: true }).waitFor();
   console.log("Verified local billing, admin moderation, ban enforcement and reactivation.");
 
   const pageTitles = {
@@ -229,7 +259,7 @@ try {
     await admin.getByRole("heading", { name: title, exact: true, level: 1 }).waitFor();
   }
 
-  await responsive(publicPage, "/", "Find the Right Tradie Fast and Easy!", "home");
+  await responsive(publicPage, "/", "Find a tradie for your next job", "home");
   await visit(publicPage, "/forgot-password");
   await publicPage.getByLabel("Email address").fill(homeownerEmail);
   await publicPage.getByRole("button", { name: "Send reset link" }).click();

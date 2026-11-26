@@ -19,10 +19,10 @@ export default async function EditProject({ params, searchParams }: { params: Pr
     loadCategories(),
   ]);
   if (!result.data) notFound();
-  return <div className="container narrow page">
+  return <div className="market-surface"><div className="container narrow page">
     <Back to={"/projects/" + id}>Back to job</Back>
     <PageTitle title="Edit job" />
     <Notice query={await searchParams} />
     <ProjectForm action={editProject} categories={categories} project={result.data} />
-  </div>;
+  </div></div>;
 }
